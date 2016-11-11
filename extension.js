@@ -48,7 +48,7 @@ define(function(require, exports, module) {
 				var $actions = $('<ul class="actions"><li class="btn btn-confirm">Settings</li></ul>');
 				
 				$actions.find('.btn.btn-confirm').click(function() {
-					HomeSettings.open(this.name);
+					HomeSettings.open(self.name);
 					
 					$(this).parents('.notification').trigger('close');
 				});
