@@ -22,6 +22,7 @@ define(function(require, exports, module) {
 	}, {
 		_lastAction: 0,
 		_lastFile: null,
+		_lastProject: null,
 		init: function() {
 			var self = this;
 			
@@ -82,7 +83,7 @@ define(function(require, exports, module) {
 			
 			Extension.handleAction(false, EditorSession.getStorage().sessions[id], EditorSession.sessions[id]);
 		},
-		sendHeartbeat: function(file, time, project, language, isWrite, lines) {
+		sendHeartbeat: function(file, time, workspace, language, isWrite, lines) {
 			$.ajax({
 				type: 'POST',
 				url: 'https://wakatime.com/api/v1/users/current/heartbeats?apikey=' + encodeURIComponent(this.getApiKey()),
@@ -91,7 +92,7 @@ define(function(require, exports, module) {
 					time: time / 1000,
 					entity: file,
 					type: 'file',
-					project: project,
+					project: workspace ? workspace.name : null,
 					language: language,
 					is_write: isWrite ? true : false,
 					lines: lines,
@@ -100,6 +101,7 @@ define(function(require, exports, module) {
 			});
 			this._lastAction = time;
 			this._lastFile = file;
+			this._lastProject = workspace ? workspace.id : null;
 		},
 		enoughTimePassed: function() {
 			return this._lastAction + 120000 < Date.now();
@@ -110,13 +112,12 @@ define(function(require, exports, module) {
 			}
 			
 			var time = Date.now();
+			var workspace = Workspace.getFromList(storage.workspaceId);
 			
-			var fullPath = storage.workspaceId + ':' + storage.path;
+			var workspaceId = workspace ? workspace.id : null;
 			
-			if (isWrite || this.enoughTimePassed() || this._lastFile !== fullPath) {
-				var workspace = Workspace.getFromList(storage.workspaceId);
-				
-				this.sendHeartbeat(fullPath, time, workspace ? workspace.name : null, session.mode, isWrite, session.data.doc.getLength());
+			if (isWrite || this.enoughTimePassed() || this._lastFile !== storage.path || this._lastProject != workspaceId) {
+				this.sendHeartbeat(storage.path, time, workspace, session.mode, isWrite, session.data.doc.getLength());
 			}
 		}
 	});
