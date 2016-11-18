@@ -15,7 +15,7 @@ define(function(require, exports, module) {
 	var Extension = ExtensionManager.register({
 		name: 'wakatime',
 		storage: {
-			apikey: '', //9fba1291-2c33-4824-8ace-969ac53f7994
+			apikey: '',
 		},
 		css: [
 		]
