@@ -10,11 +10,11 @@ define(function(require, exports, module) {
 	
 	var MenuIcon = require('text!./menu.svg');
 	
-	var VERSION = '1.0';
+	var VERSION = '1.1';
 	
 	var Extension = ExtensionManager.register({
 		name: 'wakatime',
-		storage: {
+		settings: {
 			apikey: '',
 		},
 		css: [
@@ -42,8 +42,8 @@ define(function(require, exports, module) {
 			});
 			
 			EditorSession.on('focus', this.onFocus);
-			EditorSession.on('save', this.onSave);
-			EditorEditors.on('codetools.change', this.onChange);
+			EditorEditors.on('save', this.onSave);
+			EditorEditors.on('session.change', this.onChange);
 			
 			if (!this.getApiKey()) {
 				var $actions = $('<ul class="actions"><li class="btn btn-confirm">Settings</li></ul>');
@@ -61,27 +61,27 @@ define(function(require, exports, module) {
 					html: $actions
 				});
 			}
+			
+			this.trigger('init');
 		},
 		destroy: function() {
 			HomeSettings.remove(this.name);
 			
 			EditorSession.off('focus', this.onFocus);
 			EditorSession.off('save', this.onFocus);
-			EditorSession.off('codetools.change', this.onChange);
+			EditorSession.off('session.change', this.onChange);
 		},
 		getApiKey: function() {
-			return this.getStorage().apikey;
+			return this.settings.apikey;
 		},
-		onFocus: function(e) {
-			Extension.handleAction(false, e.storage, e.session);
+		onFocus: function(session) {
+			Extension.handleAction(false, session);
 		},
-		onSave: function(e) {
-			Extension.handleAction(true, e.storage, e.session);
+		onSave: function(session) {
+			Extension.handleAction(true, session);
 		},
-		onChange: function(e) {
-			var id = e.id;
-			
-			Extension.handleAction(false, EditorSession.getStorage().sessions[id], EditorSession.sessions[id]);
+		onChange: function(session) {
+			Extension.handleAction(false, session);
 		},
 		sendHeartbeat: function(file, time, workspace, language, isWrite, lines) {
 			$.ajax({
@@ -106,18 +106,18 @@ define(function(require, exports, module) {
 		enoughTimePassed: function() {
 			return this._lastAction + 120000 < Date.now();
 		},
-		handleAction: function(isWrite, storage, session) {
-			if (!storage || !session || storage.type != 'file' || !this.getApiKey()) {
+		handleAction: function(isWrite, session) {
+			if (!session.storage || session.storage.type !== 'file' || !this.getApiKey()) {
 				return false;
 			}
 			
 			var time = Date.now();
-			var workspace = Workspace.getFromList(storage.workspaceId);
+			var workspace = Workspace.get(session.storage.workspaceId);
 			
 			var workspaceId = workspace ? workspace.id : null;
 			
-			if (isWrite || this.enoughTimePassed() || this._lastFile !== storage.path || this._lastProject != workspaceId) {
-				this.sendHeartbeat(storage.path, time, workspace, session.mode, isWrite, session.data.doc.getLength());
+			if (isWrite || this.enoughTimePassed() || this._lastFile !== session.storage.path || this._lastProject != workspaceId) {
+				this.sendHeartbeat(session.storage.path, time, workspace, session.mode, isWrite, session.data.doc.getLength());
 			}
 		}
 	});
