@@ -1,34 +1,44 @@
+/* global define, $, config */
+"use strict";
+
 define(function(require, exports, module) {
-	var ExtensionManager = require('core/extensionManager');
-	var Notification = require('core/notification');
-	var Workspace = require('core/workspace');
+	const ExtensionManager = require('core/extensionManager');
+	const Notification = require('core/notification');
+	const Workspace = require('core/workspace');
 	
-	var HomeSettings = require('modules/home/ext/settings');
+	const HomeSettings = require('modules/home/ext/settings');
 	
-	var EditorSession = require('modules/editor/ext/session');
-	var EditorEditors = require('modules/editor/ext/editors');
+	const EditorSession = require('modules/editor/ext/session');
+	const EditorEditors = require('modules/editor/ext/editors');
 	
-	var MenuIcon = require('text!./menu.svg');
-	
-	var VERSION = '1.1';
-	
-	var Extension = ExtensionManager.register({
-		name: 'wakatime',
-		settings: {
-			apikey: '',
-		},
-		css: [
-		]
-	}, {
-		_lastAction: 0,
-		_lastFile: null,
-		_lastProject: null,
-		init: function() {
+	class Extension extends ExtensionManager.Extension {
+		constructor() {
+			super({
+				name: 'wakatime',
+				settings: {
+					apikey: '',
+				},
+			});
+			
+			this._lastAction = 0;
+			this._lastFile = null;
+			this._lastProject = null;
+			
+			// bind event handlers
+			this.onFocus = this.onFocus.bind(this);
+			this.onSave = this.onSave.bind(this);
+			this.onChange = this.onChange.bind(this);
+		}
+		
+		
+		init() {
+			super.init();
+			
 			var self = this;
 			
 			HomeSettings.add(this.name, {
 				label: 'WakaTime',
-				icon: MenuIcon,
+				icon: require('text!./menu.svg'),
 				sections: [{
 					title: 'WakaTime',
 					module: this.path,
@@ -63,27 +73,35 @@ define(function(require, exports, module) {
 			}
 			
 			this.trigger('init');
-		},
-		destroy: function() {
+		}
+		
+		destroy() {
+			super.destroy();
+			
 			HomeSettings.remove(this.name);
 			
 			EditorSession.off('focus', this.onFocus);
 			EditorSession.off('save', this.onFocus);
 			EditorSession.off('session.change', this.onChange);
-		},
-		getApiKey: function() {
+		}
+		
+		getApiKey() {
 			return this.settings.apikey;
-		},
-		onFocus: function(session) {
-			Extension.handleAction(false, session);
-		},
-		onSave: function(session) {
-			Extension.handleAction(true, session);
-		},
-		onChange: function(session) {
-			Extension.handleAction(false, session);
-		},
-		sendHeartbeat: function(file, time, workspace, language, isWrite, lines) {
+		}
+		
+		onFocus(session) {
+			this.handleAction(false, session);
+		}
+		
+		onSave(session) {
+			this.handleAction(true, session);
+		}
+		
+		onChange(session) {
+			this.handleAction(false, session);
+		}
+		
+		sendHeartbeat(file, time, workspace, language, isWrite, lines) {
 			$.ajax({
 				type: 'POST',
 				url: 'https://wakatime.com/api/v1/users/current/heartbeats?apikey=' + encodeURIComponent(this.getApiKey()),
@@ -96,17 +114,19 @@ define(function(require, exports, module) {
 					language: language,
 					is_write: isWrite ? true : false,
 					lines: lines,
-					plugin: 'codetasty-wakatime/' + VERSION
+					plugin: 'codetasty-wakatime/' + this.version,
 				})
 			});
 			this._lastAction = time;
 			this._lastFile = file;
 			this._lastProject = workspace ? workspace.id : null;
-		},
-		enoughTimePassed: function() {
+		}
+		
+		enoughTimePassed() {
 			return this._lastAction + 120000 < Date.now();
-		},
-		handleAction: function(isWrite, session) {
+		}
+		
+		handleAction(isWrite, session) {
 			if (!session.storage || session.storage.type !== 'file' || !this.getApiKey()) {
 				return false;
 			}
@@ -120,11 +140,7 @@ define(function(require, exports, module) {
 				this.sendHeartbeat(session.storage.path, time, workspace, session.mode, isWrite, session.data.doc.getLength());
 			}
 		}
-	});
+	}
 	
-	Extension.api({
-		imports: ['getApiKey']
-	});
-
-	module.exports = Extension.api();
+	module.exports = new Extension();
 });
